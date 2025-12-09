@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>채령아 졸업 축하해</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #fff7fb;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 0 16px rgba(0,0,0,0.08);
+    }
+    h1 {
+      text-align: center;
+      color: #ff4b8a;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      text-align: center;
+      margin-bottom: 18px;
+      color: #555;
+    }
+    label {
+      display: block;
+      margin: 8px 0 4px;
+      font-size: 14px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-family: inherit;
+      font-size: 14px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    input[type="file"] {
+      padding: 4px;
+    }
+    button {
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .btn-primary {
+      background: #ff4b8a;
+      color: white;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .btn-delete {
+      background: #eee;
+      color: #333;
+      font-size: 12px;
+      padding: 4px 8px;
+      margin-top: 4px;
+    }
+    .posts {
+      margin-top: 24px;
+    }
+    .post {
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+    }
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .post img {
+      max-width: 150px;
+      max-height: 150px;
+      display: block;
+      margin: 6px 0;
+      border-radius: 6px;
+    }
+    .message-text {
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+    .info {
+      font-size: 12px;
+      color: #777;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>채령아 졸업 축하해 🎓</h1>
+    <p class="subtitle">채령이에게 축하 메시지를 남겨 주세요!</p>
+
+    <!-- 입력 폼 -->
+    <div>
+      <label for="name">이름 (또는 닉네임)</label>
+      <input type="text" id="name" placeholder="예: 채령친구 지민" />
+
+      <label for="message">축하 메시지</label>
+      <textarea id="message" rows="3" placeholder="따뜻한 메시지를 남겨 주세요 :)"></textarea>
+
+      <label for="image">사진(선택)</label>
+      <input type="file" id="image" accept="image/*" />
+
+      <button class="btn-primary" onclick="sendMessage()">전송 💌</button>
+      <div class="info">※ 삭제 버튼으로 글을 지울 수 있습니다. (임시로 모두에게 보이는 공개 방명록입니다.)</div>
+    </div>
+
+    <!-- 방명록 목록 -->
+    <div class="posts" id="posts"></div>
+  </div>
+
+<script>
+  async function loadPosts() {
+    const res = await fetch("/api/posts");
+    const posts = await res.json();
+
+    const postsDiv = document.getElementById("posts");
+    postsDiv.innerHTML = "";
+
+    if (!posts.length) {
+      postsDiv.innerHTML = "<p style='color:#777;'>아직 메시지가 없습니다. 첫 번째로 남겨 보세요!</p>";
+      return;
+    }
+
+    posts.forEach(post => {
+      const div = document.createElement("div");
+      div.className = "post";
+
+      const header = document.createElement("div");
+      header.className = "post-header";
+      header.innerHTML = `<strong>${post.name}</strong><span>${new Date(post.created_at).toLocaleString()}</span>`;
+
+      const message = document.createElement("div");
+      message.className = "message-text";
+      message.textContent = post.message;
+
+      div.appendChild(header);
+
+      // 이미지가 있으면 보여주기
+      if (post.image_path) {
+        const img = document.createElement("img");
+        img.src = post.image_path;
+        img.alt = "첨부 이미지";
+        div.appendChild(img);
+      }
+
+      div.appendChild(message);
+
+      // 삭제 버튼
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn-delete";
+      delBtn.textContent = "삭제";
+      delBtn.onclick = () => deletePost(post.id);
+      div.appendChild(delBtn);
+
+      postsDiv.appendChild(div);
+    });
+  }
+
+  async function sendMessage() {
+    const nameInput = document.getElementById("name");
+    const msgInput = document.getElementById("message");
+    const imgInput = document.getElementById("image");
+
+    const name = nameInput.value.trim();
+    const message = msgInput.value.trim();
+    const file = imgInput.files[0];
+
+    if (!name || !message) {
+      alert("이름과 메시지를 입력하세요.");
+      return;
+    }
+    if (message.length > 300) {
+      alert("메시지는 300자 이내로 작성해 주세요.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("name", name);
+    formData.append("message", message);
+    if (file) {
+      formData.append("image", file);
+    }
+
+    const res = await fetch("/api/posts", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "메시지 저장 중 오류가 발생했습니다.");
+      return;
+    }
+
+    // 입력칸 초기화
+    nameInput.value = "";
+    msgInput.value = "";
+    imgInput.value = "";
+
+    loadPosts();
+  }
+
+  async function deletePost(id) {
+    if (!confirm("정말 이 메시지를 삭제할까요?")) return;
+
+    const res = await fetch(`/api/posts/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "삭제 중 오류가 발생했습니다.");
+      return;
+    }
+
+    loadPosts();
+  }
+
+  // 페이지 처음 로드될 때 목록 불러오기
+  loadPosts();
+</script>
+
+</body>
+</html>
